@@ -2,15 +2,17 @@
 
 
 **Author:** Dashane James  
-**Lab Environment:** [e.g. VMware Workstation | Kali Linux | Metasploitable 2]  
-**Purpose:** [The goal of this repository is to ..]
+**Lab Environment:** VMware Workstation | Kali Linux | ELK Stack  
+**Purpose:** Install and configure the ELK Stack on Kali Linux, verify each component is running, and document the role of each in a security monitoring and log analysis context.  
 **Status:** 🔵 Completed
 
 ---
 
 ## 📋 Overview
 
-[This repository documents ]
+The ELK Stack, Elasticsearch, Logstash, and Kibana, is one of the most widely deployed open-source SIEM and log analysis platforms in enterprise security environments. Security teams use it to ingest logs from endpoints, network devices, and applications; index them for fast searching; and surface events through dashboards and alerts. Understanding how the three components interact, and where Beats fit in, is foundational to any detection engineering or SOC analyst role.
+
+This lab covers installing and starting all three components on Kali Linux, verifying Elasticsearch is responding on its expected port, accessing Kibana's web interface and exploring the Discover section, and documenting the function of each component in the overall data pipeline.
 
 ---
 
@@ -19,249 +21,333 @@
 | Component | Details |
 |---|---|
 | Hypervisor | VMware Workstation (Host-Only Network) |
-| Attacker Machine | Kali Linux 2026.1 — `192.168.79.129` |
-| Target Machine | [Metasploitable 2] — `192.168.79.130` |
+| Analyst Machine | Kali Linux 2026.1, `192.168.79.129` |
+| Target Machine | N/A (this lab focuses on tooling setup) |
 | Network Type | Host-Only (isolated, no internet exposure) |
-| Host OS | Windows 11 — ASUS Vivobook 14 |
+| Host OS | Windows 11, ASUS Vivobook 14 |
 
-> ⚠️ **Note:** All activity was performed in a controlled, isolated lab environment against deliberately vulnerable machines. No unauthorized access to live networks was performed.
+> ⚠️ **Note:** All activity was performed in a controlled, isolated lab environment. The ELK Stack was installed locally on the Kali machine for log analysis and detection engineering practice.
 
 ---
 
 ## 🛠️ Tools Used
 
-- **Nmap** — Used for both standard scanning and running NSE (Nmap Scripting Engine) scripts to detect and, in one case, actively exploit vulnerabilities
-- **NSE (Nmap Scripting Engine)** — Ran default (`-sC`), targeted (`ftp-anon`, `smb-vuln*`), and broad (`vuln`) script categories against the target
-- **NVD (National Vulnerability Database)** — Referenced to research CVE details, CVSS scores, and attack vectors for confirmed vulnerabilities
-
----
-
-## 📁 Repository Structure
-
-```
-[Repo-Name]/
-├── README.md
-├── [folder-1]/
-│   ├── [file1.txt]        # Description of file
-│   └── [file2.md]         # Description of file
-├── [folder-2]/
-│   ├── [file3.md]         # Description of file
-│   └── [file4.txt]        # Description of file
-└── reports/
-    └── [final-report.md]  # Full assessment report
-```
+- **Elasticsearch:** Distributed search and analytics engine; stores log data as indexed JSON documents and exposes a REST API on port 9200. Every other component in the stack communicates with it through that API.
+- **Logstash:** Data processing pipeline; ingests logs from configured input sources, applies parsing and transformation rules in the filter stage, and outputs structured data to Elasticsearch. Pipeline behavior is defined in `.conf` files with input, filter, and output sections.
+- **Kibana:** Web-based visualization and search interface for Elasticsearch; accessible at `http://localhost:5601`. The Discover section provides raw event search, dashboards allow aggregated views across time ranges, and the alerting engine fires notifications when detection queries match.
+- **Beats (reference only, not installed in this lab):** Lightweight log shipper agents that run on monitored hosts and forward data to Logstash or directly to Elasticsearch. Filebeat handles log files; Winlogbeat handles Windows Event Logs; Auditbeat handles Linux audit framework events. They are the standard collection layer in production deployments.
 
 ---
 
 ## 🔬 Tasks / Assessments Performed
 
-### 1. [5]
-For this task 
+### 1. Install ELK on Kali Linux
 
-# Command used
-[]
+All three ELK components are available through Kali's package manager as individual packages.
 
+```bash
+# Update package lists first
+sudo apt update
 
-# Output
+# Install Elasticsearch, Logstash, and Kibana
+sudo apt install elasticsearch logstash kibana -y
 
+# Start Elasticsearch and Kibana
+sudo systemctl start elasticsearch
+sudo systemctl start kibana
 
-**Findings:**
-1
-
-### 2. [.]
-[]
-
-# Command used
-[]
-
-
-# Output
-
-
-
-**Findings:**
-0
-### 3. []
-[] 
-
-
-# Command used
-[]
-# Output
-
-2
+# Optional: enable both services to start automatically on reboot
+sudo systemctl enable elasticsearch
+sudo systemctl enable kibana
 ```
 
-**Findings:**
+Logstash is installed as a dependency and library but not started here because no input pipeline has been configured yet. Starting it without a pipeline defined causes it to run in a wait state without doing any processing.
 
+**Service startup timing:** Elasticsearch takes 30 to 60 seconds to fully initialize after `systemctl start`. Running `curl http://localhost:9200` immediately after the start command usually returns a connection refused error. Wait 30 to 60 seconds before attempting the verification step.
 
+**Common installation issue: Elasticsearch 8.x security defaults**
 
+Elasticsearch 8.x ships with security features enabled. By default it expects HTTPS connections and requires authentication, which causes `curl http://localhost:9200` to return an SSL error or prompt for credentials. In an isolated local lab environment, disabling these features is the practical path forward.
 
+```bash
+# Edit the main Elasticsearch configuration file
+sudo nano /etc/elasticsearch/elasticsearch.yml
 
-### 4. []
+# Add or set these two lines:
+xpack.security.enabled: false
+xpack.security.http.ssl.enabled: false
 
+# Restart Elasticsearch after saving the change
+sudo systemctl restart elasticsearch
+```
 
-#Command
-[]
+After this change, `curl http://localhost:9200` works over plain HTTP without credentials.
 
-# Output
-.
+**Common installation issue: insufficient memory**
 
+Elasticsearch reserves a significant portion of available RAM at startup. On a VM with limited memory, it may start slowly or fail entirely. If `systemctl status elasticsearch` reports a failed state, check the service logs:
 
+```bash
+sudo journalctl -u elasticsearch -n 50
+```
 
-**Findings:** 
+An out-of-memory error in the log means the JVM heap allocation exceeds available RAM. Reduce it by editing `/etc/elasticsearch/jvm.options` and setting both heap values to 512m:
 
-### 580. []
+```
+-Xms512m
+-Xmx512m
+```
 
-For this task
+Restart Elasticsearch after making this change. This is sufficient for a single-node lab instance with no production workload.
 
-### Output
+---
 
-Port / Service / Vulnerability / NSE Script / Severity / Notes
+### 2. Verify Elasticsearch is running on port 9200
 
-21/tcp (FTP) - ftp-vsftpd-backdoor (CVE-2011-2523)	🔴 Critical	Live exploitation confirmed. The vulnerable vsFTPd 2.3.4 backdoor allowed remote command execution and root shell access. (CVSS 9.8)
+```bash
+curl http://localhost:9200
+```
 
-22/tcp (SSH) - Weak SSH cryptographic configuration - 🟡 Medium	Weak or outdated cryptographic algorithms were identified, potentially reducing the security of encrypted communications.
+A successful response confirms Elasticsearch is running, reachable on port 9200, and accepting API requests:
 
-23/tcp (Telnet) - Telnet service detected	🟠 High	Telnet transmits credentials in plaintext, making usernames and passwords susceptible to interception.
+```json
+{
+  "name" : "kali",
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "xK9mZrQfTpS3aBnNvUlEwA",
+  "version" : {
+    "number" : "8.x.x",
+    "build_flavor" : "default",
+    "build_type" : "deb",
+    "lucene_version" : "9.x.x",
+    "minimum_wire_compatibility_version" : "7.17.0",
+    "minimum_index_compatibility_version" : "7.0.0"
+  },
+  "tagline" : "You Know, for Search"
+}
+```
 
-80/tcp (HTTP) - Slowloris Denial-of-Service	🟡 Medium	The web server appears susceptible to the Slowloris DoS attack, which can exhaust server connections and deny service to legitimate users.
+The `"You Know, for Search"` tagline has been in every Elasticsearch response since version 1.0. It confirms the node is healthy and ready to accept index and query operations. The cluster name defaults to `elasticsearch` and the node name defaults to the hostname of the machine.
 
-80/tcp (HTTP) - HTTP TRACE method enabled	🟢 Low	TRACE is enabled, which may aid reconnaissance or cross-site tracing attacks but does not directly compromise the server.
+Additional verification commands:
 
-80/tcp (HTTP) - SQL Injection vulnerability	🟠 High	SQL injection was detected and could allow attackers to retrieve, modify, or delete database information.
+```bash
+# Check cluster health (green = all shards allocated and healthy)
+curl http://localhost:9200/_cluster/health?pretty
 
-111/tcp (rpcbind) - RPC information disclosure	🟢 Low	rpcbind exposes information about available RPC services, assisting attacker reconnaissance.
+# List all indexes currently stored in Elasticsearch
+curl http://localhost:9200/_cat/indices?v
 
-139/tcp (NetBIOS/SMB) - SMB enumeration	🟡 Medium	SMB information disclosure allows attackers to gather host and share information useful for later attacks.
+# Check system service status
+sudo systemctl status elasticsearch
+```
 
-445/tcp (SMB) - smb-vuln-ms10-061 🟢 Not Vulnerable	NSE script returned false, indicating the system is not vulnerable to MS10-061.
+**Finding:** Port 9200 is the HTTP REST API used by every component and tool that communicates with Elasticsearch. Port 9300 handles internal cluster communication between nodes, which is not relevant in a single-node lab setup but is an important port to restrict in production. Exposing port 9200 to the internet without authentication is one of the most common and consequential misconfigurations in cloud-deployed ELK stacks. Dozens of large-scale data breaches have involved unprotected Elasticsearch nodes reachable from the public internet.
 
-445/tcp (SMB) - smb-vuln-ms10-054 🟢 Not Vulnerable	NSE script returned false, indicating the target is not affected by MS10-054.
+---
 
-445/tcp (SMB) - smb-vuln-regsvc-dos	⚪ Inconclusive	The script failed to complete successfully, so the vulnerability status could not be determined.
+### 3. Access Kibana and explore the Discover section
 
-3306/tcp (MySQL) - MySQL information disclosure	🟡 Medium	Database version and service information were exposed, which may help attackers identify known exploits.
+Open a browser on the Kali machine and navigate to `http://localhost:5601`. With Elasticsearch security disabled as documented in Task 1, Kibana connects to the local Elasticsearch instance automatically and opens without a login prompt.
 
-443/tcp (HTTPS) - Logjam (Weak Diffie-Hellman Parameters) 🟡 Medium	Weak Diffie-Hellman parameters reduce TLS security and could allow encrypted communications to be weakened under certain attack scenarios
+**Navigating to Discover:**
 
-**Findings:** 
+From the Kibana home page: hamburger menu (top-left) → Analytics → Discover.
 
-The table above consolidates all of the findings reported during the Nmap --script vuln scan and categorizes each result by severity. The most significant finding was the vsFTPd 2.3.4 backdoor (CVE-2011-2523) on port 21, which was successfully exploited to obtain root-level access, making it the only Critical vulnerability confirmed through live exploitation. Several additional weaknesses were identified, including SQL injection, Telnet running without encryption, Slowloris denial-of-service susceptibility, and weak SSH cryptographic settings, all of which increase the attack surface of the target system. The SMB vulnerability checks also demonstrated that vulnerability scans can produce different outcomes: some scripts confirmed the system was not vulnerable, while others returned inconclusive results because the checks could not be completed. Overall, the scan illustrates the importance of reviewing every NSE script result individually, as findings may represent confirmed vulnerabilities, informational issues, successful mitigations, or inconclusive tests requiring additional investigation.
+Discover is Kibana's primary interface for searching and exploring raw indexed events. It requires an index pattern before any data is visible. An index pattern tells Kibana which Elasticsearch indexes to query and which field represents the event timestamp.
+
+**Creating an index pattern:**
+
+With no data ingested yet, Discover shows an empty state. In a populated environment, index patterns are created by navigating to Stack Management → Index Patterns → Create index pattern, entering a pattern that matches the index naming convention in use (such as `logstash-*` for Logstash output, or `filebeat-*` for Filebeat), and selecting the timestamp field.
+
+**What the Discover section provides once logs are flowing:**
+
+After an index pattern is configured and data is being ingested, the Discover interface provides:
+
+- A histogram showing event volume over the selected time range, making activity spikes immediately visible
+- A document table with one row per indexed event, expandable to show all fields and their values
+- A field sidebar listing every indexed field and its data type, with click-to-filter functionality
+- A KQL (Kibana Query Language) search bar for filtering events by field value, pattern, or time range
+
+Example KQL queries for security log analysis once data is flowing:
+
+```
+# Filter events from a specific source IP
+source.ip: "192.168.79.129"
+
+# Find all process creation events
+event.category: "process"
+
+# Find events tagged with a specific ATT&CK technique
+tags: "attack.t1190"
+
+# Find FTP login attempts containing the vsftpd backdoor trigger pattern
+ftp.username: *:)*
+```
+
+**Finding:** The Discover interface is only as useful as the data flowing into it. The depth and specificity of what can be searched depends entirely on how well logs were parsed and structured at the Logstash or Beats layer. A field like `ftp.username` only exists as a searchable field in Discover if Logstash was configured to parse it out of the raw FTP log text. This is the direct connection between pipeline design decisions and detection capability.
+
+---
+
+### 4. Document the role of each ELK component
+
+**Elasticsearch: Store and Index**
+
+Elasticsearch is a distributed document store built on Apache Lucene. Each log event arrives as a JSON document and is stored inside a named index. When Logstash or Beats ships a log event, Elasticsearch maps each field to the appropriate data type, builds inverted indexes across all fields, and makes the document searchable in near real time regardless of how large the index has grown.
+
+Key concepts: an index is a collection of documents; shards are how an index is split across nodes in a cluster; mappings define the data types for each field; the REST API is how every other component communicates with Elasticsearch. In a single-node lab, sharding is not relevant, but the API and mappings matter the moment data starts flowing.
+
+**Logstash: Ingest and Parse**
+
+Logstash is a configurable data pipeline with three stages: input, filter, and output. The input section defines where logs come from, such as a Beats forwarder on TCP 5044, a syslog listener, or a file path. The filter section is where raw log text is transformed into structured fields using parsing plugins like `grok` for plain-text log formats or `json` for already-structured input. The output section sends the structured events to their destination, almost always Elasticsearch in a security context.
+
+The filter stage is where the analytical value is created. A raw Apache access log line like `192.168.79.129 - - [25/Oct/2026:09:15:42 +0000] "GET /admin HTTP/1.1" 200 1234` becomes individual, independently searchable fields (client IP, timestamp, HTTP method, URL path, response code, bytes transferred) that Kibana and detection rules can query separately. Without the filter stage, the entire line lands in Elasticsearch as a single unstructured string and most detection logic cannot be applied to it.
+
+**Kibana: Visualize and Search**
+
+Kibana is the web interface layer. It connects to Elasticsearch and translates complex query logic into a usable search bar, dashboard tiles, and alert rules. For security work, the three most relevant capabilities are: Discover (search and explore raw events, filter by field, export data), Dashboards (aggregate views showing event counts, top sources, timeline charts, and geographic data), and Alerts (rule-based notifications that fire when a detection query returns results).
+
+Kibana Security, available in higher license tiers, adds pre-built SIEM views aligned to ATT&CK phases. The free open-source version still supports custom dashboards and alerting with manually written KQL detection rules.
+
+**Beats: Ship**
+
+Beats are not installed in this lab but represent the standard data collection layer in production. Each Beat is a lightweight agent that runs on a host, watches a specific log source, and forwards events to Logstash or directly to Elasticsearch. Filebeat reads log files line by line and ships new entries as they are written. Winlogbeat watches the Windows Event Log channels and ships security-relevant events such as logon events (Event ID 4624), logon failures (Event ID 4625), and process creation (Event ID 4688). Auditbeat reads Linux auditd events and ships process execution, file access, and socket activity. The lightweight design means Beats can run on nearly any host with minimal CPU and memory impact.
+
+**Full data pipeline:**
+
+```
+Log sources → Beats (lightweight shippers)
+                     ↓
+              Logstash (parse and transform)
+                     ↓
+           Elasticsearch (store and index)
+                     ↓
+              Kibana (search and visualize)
+```
+
+In simplified deployments, Logstash can be bypassed when Beats' built-in processors or Elasticsearch ingest pipelines handle the parsing work:
+
+```
+Log sources → Beats → Elasticsearch → Kibana
+```
 
 ---
 
 ## 📊 Key Findings Summary
 
-| Port/Service | Tool Used | Risk Level | Notes |
-
-| 21/tcp FTP | Nmap (`vuln`, `ftp-anon`) | 🔴 Critical | vsFTPd 2.3.4 backdoor (CVE-2011-2523) — live exploitation confirmed, root access achieved |
-| 23/tcp Telnet | Nmap (`vuln`) | 🟠 High | Transmits credentials in plaintext, vulnerable to interception |
-| 80/tcp HTTP | Nmap (`vuln`) | 🟠 High | SQL injection vulnerability detected |
-| 80/tcp HTTP | Nmap (`vuln`) | 🟡 Medium | Susceptible to Slowloris denial-of-service attack |
-| 445/tcp SMB | Nmap (`-sC`, `smb-vuln*`) | 🟡 Medium | Message signing disabled; guest authentication allowed |
-| 22/tcp SSH | Nmap (`vuln`) | 🟡 Medium | Weak/outdated cryptographic configuration identified |
-| 3306/tcp MySQL | Nmap (`vuln`) | 🟡 Medium | Database version and service info exposed |
-
-**Risk Levels:** 🔴 Critical | 🟠 High | 🟡 Medium | 🟢 Low
-
+| Component | Port | Role | Status |
+|---|---|---|---|
+| Elasticsearch | 9200 (HTTP REST API), 9300 (cluster transport) | Store and index all log documents | 🟢 Running, verified via `curl http://localhost:9200` |
+| Kibana | 5601 | Web interface for search, dashboards, and alerts | 🟢 Running, Discover section accessible |
+| Logstash | 5044 (Beats input, when configured) | Ingest pipeline: parse raw log text into structured, searchable fields | 🔵 Installed, not started (no pipeline configured) |
+| Filebeat | ships from monitored hosts | Forward log files to Logstash or Elasticsearch | 🔵 Reference only (not installed in this lab) |
+| Winlogbeat | ships from Windows hosts | Forward Windows Event Log data to Logstash or Elasticsearch | 🔵 Reference only (not installed in this lab) |
 
 ---
 
 ## 🗺️ MITRE ATT&CK Mapping
 
-| Action Performed | ATT&CK Tactic | Technique ID | Technique Name |
-|---|---|---|---|
-| Default and targeted script scanning (-sC, ftp-anon, smb-vuln*) | Reconnaissance | T1595 | Active Scanning |
-| Anonymous FTP login confirmed | Initial Access | T1078 | Valid Accounts |
-| vsFTPd backdoor exploitation (root shell via `id` command) | Execution | T1059 | Command and Scripting Interpreter |
-| Root-level access confirmed post-exploitation | Privilege Escalation | T1068 | Exploitation for Privilege Escalation |
+The ELK Stack is a defensive detection platform. The relevant ATT&CK framing for this lab is what adversary techniques each log source the stack ingests would enable detection of, connecting the offensive behavior documented in Week 2 to the detection infrastructure built here.
+
+| ELK Log Source | ATT&CK Data Component | Adversary Techniques Detected |
+|---|---|---|
+| FTP service logs via Filebeat | Network Traffic: Network Connection Creation | T1190 (vsftpd backdoor trigger via `:)` in FTP USER field) |
+| Process creation logs via Auditbeat | Process: Process Creation | T1059.004 (shell execution via Meterpreter), T1033, T1082 (post-exploitation discovery commands) |
+| File access logs via Auditbeat | File: File Access | T1087.001 (`/etc/passwd` read), T1003.008 (`/etc/shadow` read) |
+| Authentication logs via Filebeat | User Account: User Authentication | T1110 (brute force: multiple failed logins), T1078 (valid accounts: successful logins from unexpected sources) |
+
+**Connection to Week 2:** The five Sigma detection rules written in the Post-Exploitation-Enumeration lab can be converted directly to Kibana KQL alert queries. The detection logic is identical; only the query syntax changes to match Elasticsearch field naming conventions. The ATT&CK technique IDs used as Sigma rule tags become the search terms used to audit detection coverage in Kibana.
 
 ---
 
 ## 🛡️ Defensive Recommendations
 
-Based on findings, the following remediations would be recommended in a real environment:
+1. **Keep Elasticsearch security enabled in any non-lab environment (Critical):** Elasticsearch 8.x enables TLS and authentication by default for good reason. The practice of disabling it for convenience, then forgetting to re-enable it before deployment, has been the direct cause of large-scale data breaches involving millions of exposed records. In lab, disable it. In staging or production, leave it enabled and configure proper credentials and certificate management.
 
-1. **vsFTPd 2.3.4 backdoor (Critical)** — Immediately upgrade or replace the FTP service; this version is known to contain an intentional backdoor and should never be used in production.
-2. **Anonymous FTP login allowed** — Disable anonymous access entirely; require authenticated accounts for any FTP access.
-3. **Telnet enabled (plaintext credentials)** — Disable Telnet and replace with SSH for all remote administration.
-4. **SMB message signing disabled** — Enable SMB message signing to prevent tampering and man-in-the-middle attacks on SMB traffic.
-5. **SQL injection on port 80** — Implement input validation/parameterized queries on the web application, and consider a WAF as an additional layer of defense.
+2. **Restrict port 9200 to localhost or a trusted management network (High):** Even with authentication enabled, Elasticsearch's REST API should not be reachable from outside the host or trusted monitoring segment. A firewall rule limiting inbound connections to port 9200 from localhost only eliminates the largest attack surface for unauthorized data access.
 
----
+3. **Use Beats agents on monitored hosts instead of remote log forwarding where possible (Medium):** Beats read and parse log data at the source host before shipping it, which reduces Logstash processing load, ensures consistent field naming, and captures log data even when the Logstash or Elasticsearch node is temporarily unavailable (Beats will buffer and retry).
 
-## 📚 CySA+ Exam Relevance
+4. **Define index lifecycle management policies before ingesting data (Medium):** Without a retention policy, Elasticsearch indexes grow indefinitely. A disk-full node stops accepting writes and effectively takes the SIEM offline. Define ILM policies at initial setup to automatically roll over large indexes and delete data older than the required retention window.
 
-This lab directly maps to the following CompTIA CySA+ (CS0-003) exam domains:
-
-| Domain | Coverage |
-
-| Security Operations (33%) | Hands-on use of Nmap and NSE scripts to perform reconnaissance and identify live services and misconfigurations |
-| Vulnerability Management (30%) | Running vulnerability-check scripts (`smb-vuln*`, `vuln`), interpreting results, and cross-referencing CVE/CVSS data from NVD |
-| Incident Response (20%) | Recognizing confirmed exploitation (root access via vsFTPd backdoor) as evidence of active compromise |
-| Reporting & Communication (17%) | Documenting findings by severity in a structured, readable format for technical and non-technical audiences |
+5. **Tag every detection rule with the ATT&CK technique ID it targets (Medium):** Consistent tagging across Kibana alert rules, Sigma rules, and SIEM dashboards makes it possible to build a coverage matrix showing which techniques have detection logic and which do not. Gaps in the matrix are gaps in visibility. This practice applies regardless of whether the platform is ELK, Splunk, or any other SIEM.
 
 ---
 
 ## 🔑 Technical Notes
 
-> # Note: not all NSE vulnerability scripts behave the same way — most only detect and report (true/false), while a small number (like ftp-vsftpd-backdoor) actually attempt live exploitation. Always check script documentation or output carefully rather than assuming uniform behavior.
->
-> "Always add the -n flag to Nmap scans in this VMware environment to prevent DNS resolution hangs."]
-> 
-> -sP and -sT contradict eachother (Can't be used together because -sP means just do a ping/host-discovery sweep, skip ports entirely but -sT tells Nmap to do a full TCP connect port scan. These commands contradict eachother.)
-
 ```bash
+# Install ELK Stack on Kali
+sudo apt update && sudo apt install elasticsearch logstash kibana -y
 
-# Any important commands or workarounds
-[-sC]
-[-Pn]
+# Start services
+sudo systemctl start elasticsearch
+sudo systemctl start kibana
 
-# Any important commands or workarounds
+# Check service status
+sudo systemctl status elasticsearch
+sudo systemctl status kibana
 
-# Task 1: Run default scripts (-sC) against key ports
-sudo nmap -sC -Pn --disable-arp-ping -n -p 21,22,80,445 192.168.79.130
+# Verify Elasticsearch is running (wait 30-60 seconds after start)
+curl http://localhost:9200
 
-# Task 2: Check FTP for anonymous login specifically
-sudo nmap --script ftp-anon -Pn --disable-arp-ping -n -p 21 192.168.79.130
+# Check cluster health
+curl http://localhost:9200/_cluster/health?pretty
 
-# Task 3: Run all SMB vulnerability scripts against port 445
-sudo nmap --script smb-vuln* -Pn --disable-arp-ping -n -p 445 192.168.79.130
+# List all indexes
+curl http://localhost:9200/_cat/indices?v
 
-# Task 4: Run the full vuln script category across all open ports
-sudo nmap --script vuln -Pn --disable-arp-ping -n 192.168.79.130
+# Access Kibana
+# Open browser on Kali: http://localhost:5601
 
-# Workaround: -p requires a value directly after it — omitting the port number
-# (e.g. "-p 192.168.79.130") causes Nmap to misinterpret the target IP as a
-# port specification. To scan all ports instead of a specific one, remove
-# the -p flag entirely rather than leaving it empty.
+# Disable Elasticsearch security features (lab/isolated environments only)
+# Edit /etc/elasticsearch/elasticsearch.yml:
+#   xpack.security.enabled: false
+#   xpack.security.http.ssl.enabled: false
+# Then restart: sudo systemctl restart elasticsearch
 
-# Workaround: always use -n in this lab to prevent DNS resolution hangs,
-# since the isolated Host-Only network has no real DNS server.
+# Fix memory-related startup failure
+# Edit /etc/elasticsearch/jvm.options:
+#   -Xms512m
+#   -Xmx512m
+# Then restart: sudo systemctl restart elasticsearch
 
-# Note: --script <name>* (wildcard) runs every NSE script matching that
-# name pattern — useful for running a whole category (e.g. smb-vuln*)
-# in a single command instead of specifying each script individually.
+# View service logs for troubleshooting
+sudo journalctl -u elasticsearch -n 50
+sudo journalctl -u kibana -n 50
 ```
+
+**ELK port reference:**
+
+| Port | Service | Purpose |
+|---|---|---|
+| 9200 | Elasticsearch | HTTP REST API (primary interface for all components and tools) |
+| 9300 | Elasticsearch | Transport layer for inter-node cluster communication |
+| 5601 | Kibana | Web UI |
+| 5044 | Logstash | Beats input plugin (default port for Filebeat/Winlogbeat forwarding) |
+| 514 | Logstash | Syslog input, UDP/TCP (when configured) |
+
+**ELK vs. Splunk:**
+
+Both platforms address the same core problem: centralized log collection, indexed search, and event-driven alerting. The practical differences are scope and configuration overhead. ELK is open source and requires manual setup of every pipeline stage, index pattern, and alert rule. Splunk's free tier handles most of this configuration automatically but caps daily data ingestion at 500MB. Detection concepts (field extraction, query logic, threshold alerts, ATT&CK mapping) transfer directly between the two platforms. Working with both is more valuable than working with either one alone.
 
 ---
 
 ## 📌 About This Project
 
-[1-2 sentences about how this fits into your overall portfolio and career goals.]
+This repository opens the Week 3 SIEM and log analysis phase. Where Week 2 documented the full attack chain from the attacker's side, Week 3 builds the detection side: the platforms a SOC analyst uses to monitor, search, and alert on the exact techniques Week 2 demonstrated.
 
-This repository is part of my broader cybersecurity portfolio demonstrating practical, hands-on vulnerability assessment skills from initial scanning through confirmed exploitation as I work toward a career as a cybersecurity analyst.
+ELK is the platform. Understanding how a log event flows from a monitored host through Beats to Logstash to Elasticsearch to Kibana is what makes the difference between an analyst who can run a query and one who can diagnose why a detection rule is not firing. The Sigma rules written in Week 2's post-exploitation lab become Kibana alert queries here. The ATT&CK technique IDs written then become the search terms used to audit detection coverage now. The lab work does not repeat; it compounds.
 
-This repository is important because here we have built up to the point of having live proof of the actual exploitation by an automated Nmap script for the CVE-2011-2523. In a past NVD task I researched this exact vulnerability with a CVSS score of 9.8 now this has come full circle and we found out how this exact vulnerability is exploited and root access was acheived. 
+**Related repositories (in order):**
 
+**Week 2 context (vulnerability scanning and exploitation phase):**
+- `Post-Exploitation-Enumeration`: The five Sigma detection rules written in that lab cover T1190, T1059.004, T1087.001, and T1003.008; those rules are the detection content this SIEM platform would run against ingested FTP and process creation logs
+- `MITRE-ATT-CK-Full-Kill-Chain-Mapping`: Each technique ID in the Week 2 kill chain maps to a data component that ELK's log sources would cover, connecting the offensive sequence directly to the detection platform built here
 
-**Related repositories:**
-- Nmap-Host-Discovery-and-Lab-Baseline — Established a baseline of the lab network using ping sweeps and host discovery, documenting the target environment before deeper scanning began
-- Nmap-Scan-Types-SYN-vs-TCP-vs-UDP — Compared SYN, TCP connect, and UDP scan types against the target, examining differences in speed, stealth, and reliability
-- Service-Version-Detection-and-OS-Fingerprinting — Identified exact software versions on Metasploitable and researched real CVEs tied to them, including the vsFTPd backdoor later exploited in this repository
-- Wireshark-Capture-and-Analyze-Traffic — Captured and analyzed live packet traffic, including plaintext credential exposure over Telnet
-- TCPDump-CLI-Packet-Capture — Used TCPDump from the command line to capture traffic (including a live Telnet session showing plaintext credential exposure), and demonstrated saving captures to a `.pcap` file for later analysis in Wireshark
+**Week 3 (SIEM and log analysis phase):**
+- `Splunk-Log-Analysis`: Parallel SIEM lab using Splunk; comparing both platforms on the same detection problem reinforces the shared concepts (indexing, search, alerting, ATT&CK coverage mapping) that apply regardless of which tool is deployed in the environment
+- `Incident-Response-NIST-SP-800-61`: Incident response simulation where log analysis from a platform like ELK supports the detection and analysis phases of the NIST SP 800-61 incident response lifecycle
 
 ---
 
@@ -270,10 +356,8 @@ This repository is important because here we have built up to the point of havin
 **Dashane James**  
 Senior Field Service Technician → Cybersecurity Analyst  
 📍 Yonkers, NY  
-🎓 B.S. Information Technology — SUNY Canton  
-🏆 CompTIA Security+ | CySA+ (In Progress)  
+🎓 B.S. Information Technology, SUNY Canton  
+🏆 CompTIA Security+  
 🔗 [GitHub](https://github.com/Dashanejames1) | [Zero Trust Cyber Security Brand](https://www.instagram.com/zerotrust_cybersecurity)
-
----
 
 *This repository is part of an active portfolio demonstrating hands-on cybersecurity skills. All lab work performed in isolated environments for educational purposes.*
