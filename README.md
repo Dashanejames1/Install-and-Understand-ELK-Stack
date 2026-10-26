@@ -335,29 +335,29 @@ Both platforms address the same core problem: centralized log collection, indexe
 
 ## 📌 About This Project
 
-This repository opens the Week 3 SIEM and log analysis phase. Where Week 2 documented the full attack chain from the attacker's side, Week 3 builds the detection side: the platforms a SOC analyst uses to monitor, search, and alert on the exact techniques Week 2 demonstrated.
+This repository documents the second SIEM platform built during the SIEM, log analysis, and incident response phase. The first three repositories set up Splunk, practiced SPL, and generated real attack traffic to detect. This one installs ELK as an alternative detection platform, documents how its pipeline works from log collection through Kibana visualization, and establishes the technical grounding needed to work with either platform in a production SOC environment.
 
-ELK is the platform. Understanding how a log event flows from a monitored host through Beats to Logstash to Elasticsearch to Kibana is what makes the difference between an analyst who can run a query and one who can diagnose why a detection rule is not firing. The Sigma rules written in Week 2's post-exploitation lab become Kibana alert queries here. The ATT&CK technique IDs written then become the search terms used to audit detection coverage now. The lab work does not repeat; it compounds.
+The most important concept here is the pipeline. A log event flowing from a monitored host through Beats to Logstash to Elasticsearch to Kibana passes through four distinct processing stages, and understanding what happens at each stage is what makes the difference between an analyst who can run a search and one who can diagnose why a detection rule is not firing. The Sigma detection rules written in the previous phase's post-exploitation lab become Kibana KQL alert queries here. The ATT&CK technique IDs referenced throughout the portfolio become the audit terms used to assess detection coverage across the stack.
 
-**Related repositories (in order):**
-
-**Week 2 context (vulnerability scanning and exploitation phase):**
-- `Post-Exploitation-Enumeration`: The five Sigma detection rules written in that lab cover T1190, T1059.004, T1087.001, and T1003.008; those rules are the detection content this SIEM platform would run against ingested FTP and process creation logs
-- `MITRE-ATT-CK-Full-Kill-Chain-Mapping`: Each technique ID in the Week 2 kill chain maps to a data component that ELK's log sources would cover, connecting the offensive sequence directly to the detection platform built here
-
-**Week 3 (SIEM and log analysis phase):**
-- `Splunk-Log-Analysis`: Parallel SIEM lab using Splunk; comparing both platforms on the same detection problem reinforces the shared concepts (indexing, search, alerting, ATT&CK coverage mapping) that apply regardless of which tool is deployed in the environment
-- `Incident-Response-NIST-SP-800-61`: Incident response simulation where log analysis from a platform like ELK supports the detection and analysis phases of the NIST SP 800-61 incident response lifecycle
+**Related repositories (SIEM, log analysis, and incident response phase):**
+- `Splunk-Free-Installation-and-Ingest-First-Logs`: Installed Splunk Enterprise and ingested the first log files, establishing the primary SIEM used throughout the detection labs
+- `Splunk-Search-Language`: Core SPL commands practiced and applied as the detection query language for the Splunk SIEM
+- `Generating-Attacks-and-Defending-in-Splunk`: Generated live attack traffic (port scan and SSH brute force), ingested it into Splunk, and built automated detection alerts for both attack types
+- `Install-Snort-IDS-and-Write-Detection-Rules`: Installed Snort 3, wrote a custom ICMP detection rule, and confirmed it fired on live traffic from Metasploitable
+- `Incident-Response-Simulation`: Walked through all seven NIST SP 800-61 phases using the SSH brute force attack as the scenario, from preparation through lessons learned
+- `Incident-Response-Report`: Formal incident report for the SSH brute force event, covering timeline, impact assessment, containment, root cause, and recommended controls
 
 ---
 
 ## 👤 Author
 
-**Dashane James**  
-Senior Field Service Technician → Cybersecurity Analyst  
-📍 Yonkers, NY  
-🎓 B.S. Information Technology, SUNY Canton  
-🏆 CompTIA Security+  
+**Dashane James**
+Senior Field Service Technician → Cybersecurity Analyst
+📍 Yonkers, NY
+🎓 B.S. Information Technology, SUNY Canton
+🏆 CompTIA Security+
 🔗 [GitHub](https://github.com/Dashanejames1) | [Zero Trust Cyber Security Brand](https://www.instagram.com/zerotrust_cybersecurity)
+
+---
 
 *This repository is part of an active portfolio demonstrating hands-on cybersecurity skills. All lab work performed in isolated environments for educational purposes.*
